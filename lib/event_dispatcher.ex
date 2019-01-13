@@ -3,7 +3,6 @@ defmodule Rsed.EventDispatcher do
   Documentation for Rsed.
   """
 
-
   # https://hexdocs.pm/elixir/GenServer.html
   # http://blog.plataformatec.com.br/2016/11/replacing-genevent-by-a-supervisor-genserver/
 
@@ -31,29 +30,18 @@ defmodule Rsed.EventDispatcher do
   """
   def dispatch(event = %Rsed.Event{}) do
     GenServer.cast(my_pid(), {:dispatch, event})
-
-#    filter_subscribers(event.name, Rsed.EventDispatcher.subscribers())
-#    |> Enum.map(fn ({module, func_name}) ->
-#      IO.inspect module
-#      IO.inspect func_name
-#      apply(module, func_name, [event])
-#    end)
   end
 
   defp filter_subscribers(needed_event_name, subscribers) do
-    Enum.map(subscribers, fn ({_, subscriber}) ->
+    Enum.map(subscribers, fn {_, subscriber} ->
       subscriber.get_subscriber_events()
-      |> Enum.map(fn ({name, callback}) ->
+      |> Enum.map(fn {name, callback} ->
         if name == needed_event_name, do: {subscriber, callback}
       end)
-      |> Enum.filter(&!is_nil(&1))
+      |> Enum.filter(&(!is_nil(&1)))
     end)
     |> Enum.map(&List.first(&1))
-    |> Enum.filter(&!is_nil(&1))
-  end
-
-  def subscribers() do
-    GenServer.call(my_pid(), {:subscribers})
+    |> Enum.filter(&(!is_nil(&1)))
   end
 
   def add_subscriber(subscriber) do
@@ -66,22 +54,18 @@ defmodule Rsed.EventDispatcher do
     {:ok, %{subscribers: %{}, listeners: %{}}}
   end
 
-  def handle_call({:subscribers}, _from, state) do
-    {:reply, Map.get(state, :subscribers), state}
-  end
-
   def handle_call({:add_subscriber, subscriber}, _from, state) do
-    subscribers = Map.get(state, :subscribers)
-                  |> Map.put(subscriber, subscriber)
+    subscribers =
+      Map.get(state, :subscribers)
+      |> Map.put(subscriber, subscriber)
+
     state = %{state | subscribers: subscribers}
     {:reply, :ok, state}
   end
 
-
-  # @todo handle_cast
   def handle_cast({:dispatch, event}, state) do
     filter_subscribers(event.name, Map.get(state, :subscribers))
-    |> Enum.map(fn ({module, func_name}) ->
+    |> Enum.map(fn {module, func_name} ->
       apply(module, func_name, [event])
     end)
 
