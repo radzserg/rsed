@@ -3,75 +3,78 @@ defmodule Rsed.EventDispatcher do
     EventDispatcher component implements the Mediator and Observer design patterns
     to make all these things possible and to make your projects truly extensible.
   """
+  defmacro __using__(opts) do
+    name = Keyword.get(opts, :name)
+    quote do
 
-  use GenServer
+      use GenServer
 
-  ## Client API
+      ## Client API
 
-  @doc """
-  Starts the registry.
-  """
-  def start_link() do
-    {:ok, pid} = GenServer.start_link(__MODULE__, :ok, [])
-    Process.register(pid, __MODULE__)
-    {:ok, pid}
-  end
+      @doc """
+      Starts the registry.
+      """
+      def start_link(_opts \\ []) do
+        GenServer.start_link(__MODULE__, :ok, name: my_name())
+      end
 
-  # @todo think about better way how can we keep my pid
-  defp my_pid() do
-    Process.whereis(__MODULE__)
-  end
+      defp my_name() do
+        unquote(name)
+      end
 
-  @doc """
-  Dispatches an event  to all registered listeners and subscribers
-  """
-  @spec dispatch(event :: Rsed.Event.t) :: term
-  def dispatch(event = %Rsed.Event{}) do
-    GenServer.cast(my_pid(), {:dispatch, event})
-  end
 
-  @doc """
-  Adds an event subscriber
+      @doc """
+      Dispatches an event  to all registered listeners and subscribers
+      """
+      @spec dispatch(event :: Rsed.Event.t) :: term
+      def dispatch(event = %Rsed.Event{}) do
+        GenServer.cast(my_name(), {:dispatch, event})
+      end
 
-  The subscriber is asked for all the events it is
-  interested in and added as a listener for these events.
+      @doc """
+      Adds an event subscriber
 
-  """
-  @spec add_subscriber(subscriber :: module()) :: term
-  def add_subscriber(subscriber) do
-    GenServer.call(my_pid(), {:add_subscriber, subscriber})
-  end
+      The subscriber is asked for all the events it is
+      interested in and added as a listener for these events.
 
-  @doc """
-  Adds an event listener that listens on the specified events.
-  """
-  @spec add_listener(event_name :: String.t(), listener :: {module :: module(), callback: atom()}) :: term
-  def add_listener(event_name, listener) do
-    GenServer.call(my_pid(), {:add_listener, event_name, listener})
-  end
+      """
+      @spec add_subscriber(subscriber :: module()) :: term
+      def add_subscriber(subscriber) do
+        GenServer.call(my_name(), {:add_subscriber, subscriber})
+      end
 
-  ## Server Callbacks
+      @doc """
+      Adds an event listener that listens on the specified events.
+      """
+      @spec add_listener(event_name :: String.t(), listener :: {module :: module(), callback: atom()}) :: term
+      def add_listener(event_name, listener) do
+        GenServer.call(my_name(), {:add_listener, event_name, listener})
+      end
 
-  def init(:ok) do
-    {:ok, %{}}
-  end
+      ## Server Callbacks
 
-  def handle_call({:add_subscriber, subscriber}, _from, listeners) do
-    listeners = Rsed.ListenersBag.add_subscriber(listeners, subscriber)
-    {:reply, :ok, listeners}
-  end
+      def init(:ok) do
+        {:ok, %{}}
+      end
 
-  def handle_call({:add_listener, event_name, callback}, _from, listeners) do
-    listeners = Rsed.ListenersBag.add_listener(listeners, event_name, callback)
-    {:reply, :ok, listeners}
-  end
+      def handle_call({:add_subscriber, subscriber}, _from, listeners) do
+        listeners = Rsed.ListenersBag.add_subscriber(listeners, subscriber)
+        {:reply, :ok, listeners}
+      end
 
-  def handle_cast({:dispatch, event}, state) do
-    Map.get(state, event.name, [])
-    |> Enum.map(fn {module, func_name, _} ->
-      apply(module, func_name, [event])
-    end)
+      def handle_call({:add_listener, event_name, callback}, _from, listeners) do
+        listeners = Rsed.ListenersBag.add_listener(listeners, event_name, callback)
+        {:reply, :ok, listeners}
+      end
 
-    {:noreply, state}
+      def handle_cast({:dispatch, event}, state) do
+        Map.get(state, event.name, [])
+        |> Enum.map(fn {module, func_name, _} ->
+          apply(module, func_name, [event])
+        end)
+
+        {:noreply, state}
+      end
+    end
   end
 end
