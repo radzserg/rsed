@@ -4,7 +4,11 @@ defmodule Rsed.Test.TestSubscriber2 do
   def get_subscriber_events() do
     %{
       test_event_2: :handler_2,
-      test_event_3: :test_event_3_handler
+      test_event_3: :test_event_3_handler,
+      test_event_4: [
+        handler_6: 200,
+        handler_5: 100
+      ]
     }
   end
 
