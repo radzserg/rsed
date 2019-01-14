@@ -1,10 +1,8 @@
 defmodule Rsed.EventDispatcher do
   @moduledoc """
-  Documentation for Rsed.
+    EventDispatcher component implements the Mediator and Observer design patterns
+    to make all these things possible and to make your projects truly extensible.
   """
-
-  # https://hexdocs.pm/elixir/GenServer.html
-  # http://blog.plataformatec.com.br/2016/11/replacing-genevent-by-a-supervisor-genserver/
 
   use GenServer
 
@@ -16,56 +14,61 @@ defmodule Rsed.EventDispatcher do
   def start_link(opts) do
     {:ok, pid} = GenServer.start_link(__MODULE__, :ok, opts)
     Process.register(pid, __MODULE__)
-    Process.monitor(pid)
     {:ok, pid}
   end
 
-  # @todo save in process state
+  # @todo think about better way how can we keep my pid
   defp my_pid() do
     Process.whereis(__MODULE__)
   end
 
   @doc """
-  Ensures there is a bucket associated with the given `name` in `server`.
+  Dispatches an event  to all registered listeners and subscribers
   """
+  @spec dispatch(event :: Rsed.Event.t) :: term
   def dispatch(event = %Rsed.Event{}) do
     GenServer.cast(my_pid(), {:dispatch, event})
   end
 
-  defp filter_subscribers(needed_event_name, subscribers) do
-    Enum.map(subscribers, fn {_, subscriber} ->
-      subscriber.get_subscriber_events()
-      |> Enum.map(fn {name, callback} ->
-        if name == needed_event_name, do: {subscriber, callback}
-      end)
-      |> Enum.filter(&(!is_nil(&1)))
-    end)
-    |> Enum.map(&List.first(&1))
-    |> Enum.filter(&(!is_nil(&1)))
-  end
+  @doc """
+  Adds an event subscriber
 
+  The subscriber is asked for all the events it is
+  interested in and added as a listener for these events.
+
+  """
+  @spec add_subscriber(subscriber :: module()) :: term
   def add_subscriber(subscriber) do
     GenServer.call(my_pid(), {:add_subscriber, subscriber})
+  end
+
+  @doc """
+  Adds an event listener that listens on the specified events.
+  """
+  @spec add_listener(event_name :: String.t(), listener :: {module :: module(), callback: atom()}) :: term
+  def add_listener(event_name, listener) do
+    GenServer.call(my_pid(), {:add_listener, event_name, listener})
   end
 
   ## Server Callbacks
 
   def init(:ok) do
-    {:ok, %{subscribers: %{}, listeners: %{}}}
+    {:ok, %{}}
   end
 
-  def handle_call({:add_subscriber, subscriber}, _from, state) do
-    subscribers =
-      Map.get(state, :subscribers)
-      |> Map.put(subscriber, subscriber)
+  def handle_call({:add_subscriber, subscriber}, _from, listeners) do
+    listeners = Rsed.ListenersBag.add_subscriber(listeners, subscriber)
+    {:reply, :ok, listeners}
+  end
 
-    state = %{state | subscribers: subscribers}
-    {:reply, :ok, state}
+  def handle_call({:add_listener, event_name, callback}, _from, listeners) do
+    listeners = Rsed.ListenersBag.add_listener(listeners, event_name, callback)
+    {:reply, :ok, listeners}
   end
 
   def handle_cast({:dispatch, event}, state) do
-    filter_subscribers(event.name, Map.get(state, :subscribers))
-    |> Enum.map(fn {module, func_name} ->
+    Map.get(state, event.name, [])
+    |> Enum.map(fn {module, func_name, _} ->
       apply(module, func_name, [event])
     end)
 
