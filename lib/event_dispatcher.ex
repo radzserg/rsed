@@ -11,8 +11,8 @@ defmodule Rsed.EventDispatcher do
   @doc """
   Starts the registry.
   """
-  def start_link(opts) do
-    {:ok, pid} = GenServer.start_link(__MODULE__, :ok, opts)
+  def start_link() do
+    {:ok, pid} = GenServer.start_link(__MODULE__, :ok, [])
     Process.register(pid, __MODULE__)
     {:ok, pid}
   end
