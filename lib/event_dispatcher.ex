@@ -9,8 +9,6 @@ defmodule Rsed.EventDispatcher do
 
       use GenServer
 
-      ## Client API
-
       @doc """
       Starts the registry.
       """
@@ -21,7 +19,6 @@ defmodule Rsed.EventDispatcher do
       defp my_name() do
         unquote(name)
       end
-
 
       @doc """
       Dispatches an event  to all registered listeners and subscribers
@@ -46,15 +43,19 @@ defmodule Rsed.EventDispatcher do
       @doc """
       Adds an event listener that listens on the specified events.
       """
-      @spec add_listener(event_name :: String.t(), listener :: {module :: module(), callback: atom()}) :: term
-      def add_listener(event_name, listener) do
-        GenServer.call(my_name(), {:add_listener, event_name, listener})
+      @spec add_listener(event_name :: String.t(), listener :: {module :: module(), callback: atom()}, priority :: integer()) :: term
+      def add_listener(event_name, listener, priority \\ 0) do
+        GenServer.call(my_name(), {:add_listener, event_name, listener, priority})
       end
 
-      ## Server Callbacks
-
       def init(:ok) do
-        {:ok, %{}}
+        listeners = if Keyword.has_key?(__MODULE__.__info__(:functions), :configure) do
+          apply(__MODULE__, :configure, [])
+        else
+          %{}
+        end
+
+        {:ok, listeners}
       end
 
       def handle_call({:add_subscriber, subscriber}, _from, listeners) do
@@ -62,8 +63,8 @@ defmodule Rsed.EventDispatcher do
         {:reply, :ok, listeners}
       end
 
-      def handle_call({:add_listener, event_name, callback}, _from, listeners) do
-        listeners = Rsed.ListenersBag.add_listener(listeners, event_name, callback)
+      def handle_call({:add_listener, event_name, callback, priority}, _from, listeners) do
+        listeners = Rsed.ListenersBag.add_listener(listeners, event_name, callback, priority)
         {:reply, :ok, listeners}
       end
 
