@@ -56,4 +56,11 @@ defmodule Rsed.Test.ListenerBagDispatcher do
       {Rsed.Test.TestListener, :handler_2}, 300)
   end
 
+  test "it adds listeners for event" do
+    listeners = %{
+      test_event_2: [{Rsed.Test.TestSubscriber, :handler_2, 100}],
+      test_event_5: [{Rsed.Test.TestSubscriber, :handler_5, 100}],
+    }
+    assert [{Rsed.Test.TestSubscriber, :handler_2, 100}] == Rsed.ListenersBag.get_event_handlers(listeners, :test_event_2)
+  end
 end

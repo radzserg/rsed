@@ -69,7 +69,7 @@ defmodule Rsed.EventDispatcher do
       end
 
       def handle_cast({:dispatch, event}, state) do
-        Map.get(state, event.name, [])
+        Rsed.ListenersBag.get_event_handlers(state, event.name)
         |> Enum.map(fn {module, func_name, _} ->
           apply(module, func_name, [event])
         end)

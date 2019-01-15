@@ -1,7 +1,7 @@
 defmodule Rsed.ListenersBag do
 
   @doc """
-  Add subscriber subscriber callbacks to listeners bag
+  Add subscriber's callbacks to listeners bag
 
       listeners = Rsed.ListenersBag.add_subscriber(%{}, Rsed.Test.TestSubscriber2)
   """
@@ -23,12 +23,23 @@ defmodule Rsed.ListenersBag do
     |> merge_listeners(listeners)
   end
 
+  @doc """
+  Adds new listener to the bag
+  """
   @spec add_listener(listeners :: map(), event_name :: atom(), {module :: module(), callback :: atom()}, priority :: integer()) :: map()
   def add_listener(listeners, event_name, {module, callback}, priority \\ 0) do
     new_listeners = %{
       event_name => [{module, callback, priority}]
     }
-    |> merge_listeners(listeners)
+    merge_listeners(new_listeners, listeners)
+  end
+
+  @doc """
+  Returns a list of handlers for specified event name
+  """
+  @spec get_event_handlers(listeners :: map(), event_name :: atom()) :: list()
+  def get_event_handlers(listeners, event_name) do
+    Map.get(listeners, event_name, [])
   end
 
   defp merge_listeners(new_listeners, listeners) do
